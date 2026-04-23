@@ -169,7 +169,7 @@ function Normalize-Key {
 function GetValue($key) {
     <#
     .SYNOPSIS
-        Retourne la valeur associee a une cle dans le CSV courant.
+        Retourne la valeur associee a une cle dans le CSV courant  .
 
     .DESCRIPTION
         - Recherche exacte de la cle dans l'index en memoire.
