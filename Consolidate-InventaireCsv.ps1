@@ -27,7 +27,10 @@ param(
     [string]$Folder = 'E:\Programs\HWInfo',
 
     [Parameter(Mandatory = $false)]
-    [string]$Output
+    [string]$Output,
+
+    [Parameter(Mandatory = $false)]
+    [string]$DescriptionTemplateFolder = 'E:\Programs\HWInfo\SquelletteDescription'
 )
 
 Set-StrictMode -Version Latest
@@ -304,6 +307,261 @@ function Test-IsSupportedValue {
     return $false
 }
 
+function Normalize-OperatingSystem {
+    param(
+        [AllowNull()]
+        [string]$Value,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MissingValue
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value) -or $Value -eq $MissingValue) {
+        return $MissingValue
+    }
+
+    $v = Normalize-Key $Value
+    if ($v -match 'windows\s*11') {
+        return 'Windows 11'
+    }
+
+    if ($v -match 'windows\s*10') {
+        return 'Windows 10'
+    }
+
+    return $Value.Trim()
+}
+
+function Normalize-StorageCapacity {
+    param(
+        [AllowNull()]
+        [string]$Value,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MissingValue
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value) -or $Value -eq $MissingValue) {
+        return $MissingValue
+    }
+
+    # Priorite a la valeur entre parentheses, ex: "244,198 Megaoctets (256 Go)" -> "256 Go".
+    $match = [regex]::Match($Value, '\(([0-9]+(?:[\.,][0-9]+)?)\s*(Go|GB|To|TB)\)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($match.Success) {
+        $num = $match.Groups[1].Value -replace '\.0+$', ''
+        $unit = $match.Groups[2].Value.ToUpperInvariant()
+        if ($unit -eq 'GO') { $unit = 'Go' }
+        if ($unit -eq 'GB') { $unit = 'Go' }
+        if ($unit -eq 'TO') { $unit = 'To' }
+        if ($unit -eq 'TB') { $unit = 'To' }
+        return ('{0} {1}' -f $num, $unit)
+    }
+
+    # Sinon, extrait une capacite deja exprimee en Go/To.
+    $match = [regex]::Match($Value, '([0-9]+(?:[\.,][0-9]+)?)\s*(Go|GB|To|TB)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($match.Success) {
+        $num = $match.Groups[1].Value -replace '\.0+$', ''
+        $unit = $match.Groups[2].Value.ToUpperInvariant()
+        if ($unit -eq 'GO') { $unit = 'Go' }
+        if ($unit -eq 'GB') { $unit = 'Go' }
+        if ($unit -eq 'TO') { $unit = 'To' }
+        if ($unit -eq 'TB') { $unit = 'To' }
+        return ('{0} {1}' -f $num, $unit)
+    }
+
+    return $Value.Trim()
+}
+
+function Convert-ToLookupKey {
+    param(
+        [AllowNull()]
+        [string]$Text
+    )
+
+    $normalized = Normalize-Key $Text
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+        return ''
+    }
+
+    return ($normalized -replace '[^a-z0-9]', '')
+}
+
+function Get-DescriptionFromTemplate {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$TemplateText,
+
+        [Parameter(Mandatory = $true)]
+        [psobject]$ComputerData,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MissingValue
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TemplateText)) {
+        return $MissingValue
+    }
+
+    $valueLookup = @{}
+    foreach ($property in $ComputerData.PSObject.Properties) {
+        $key = Convert-ToLookupKey $property.Name
+        if (-not [string]::IsNullOrWhiteSpace($key)) {
+            $valueLookup[$key] = [string]$property.Value
+        }
+    }
+
+    # Valeurs derivees utiles pour les templates marketing (ex: [ramgo], [ssdgo]).
+    $memoireTotaleKey = Convert-ToLookupKey 'MemoireTotale'
+    if ($valueLookup.ContainsKey($memoireTotaleKey)) {
+        $mem = [string]$valueLookup[$memoireTotaleKey]
+        $memMatch = [regex]::Match($mem, '([0-9]+(?:[\.,][0-9]+)?)')
+        if ($memMatch.Success) {
+            $memNum = $memMatch.Groups[1].Value
+            $valueLookup['ramgo'] = $memNum
+            $valueLookup['memoirego'] = $memNum
+        }
+    }
+
+    $capaciteSsdKey = Convert-ToLookupKey 'CapaciteSSD'
+    if ($valueLookup.ContainsKey($capaciteSsdKey)) {
+        $ssd = [string]$valueLookup[$capaciteSsdKey]
+        $ssdMatch = [regex]::Match($ssd, '([0-9]+(?:[\.,][0-9]+)?)')
+        if ($ssdMatch.Success) {
+            $ssdNum = $ssdMatch.Groups[1].Value
+            $valueLookup['ssdgo'] = $ssdNum
+            $valueLookup['capacitessdgo'] = $ssdNum
+        }
+    }
+
+    $aliasToProperty = @{
+        'marque'      = 'NomMarqueOrdinateur'
+        'nommarque'   = 'NomMarqueOrdinateur'
+        'serial'      = 'NumeroSerie'
+        'numeroserie' = 'NumeroSerie'
+        'processeur'  = 'NomProcesseur'
+        'cpu'         = 'NomProcesseur'
+        'coeur'       = 'NombreCoeurs'
+        'coeurs'      = 'NombreCoeurs'
+        'cœur'        = 'NombreCoeurs'
+        'cœurs'       = 'NombreCoeurs'
+        'nombredecoeurs' = 'NombreCoeurs'
+        'threads'     = 'NombreProcesseursLogiques'
+        'thread'      = 'NombreProcesseursLogiques'
+        'nombrethreads' = 'NombreProcesseursLogiques'
+        'os'          = 'SystemeOperateur'
+        'systeme'     = 'SystemeOperateur'
+        'ram'         = 'MemoireTotale'
+        'memoire'     = 'MemoireTotale'
+        'memoireddr3l' = 'MemoireTotale'
+        'memoireddr4' = 'MemoireTotale'
+        'ssd'         = 'CapaciteSSD'
+    }
+
+    foreach ($alias in $aliasToProperty.Keys) {
+        $propertyName = $aliasToProperty[$alias]
+        $propertyKey = Convert-ToLookupKey $propertyName
+        if ($valueLookup.ContainsKey($propertyKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$propertyKey])) {
+            $valueLookup[(Convert-ToLookupKey $alias)] = $valueLookup[$propertyKey]
+        }
+    }
+
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator]{
+        param($match)
+
+        $token = $match.Groups['token'].Value
+        $lookupKey = Convert-ToLookupKey $token
+        if ($valueLookup.ContainsKey($lookupKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$lookupKey])) {
+            return $valueLookup[$lookupKey]
+        }
+
+        # Fallback souple : autorise des balises "naturelles" proches des noms de colonnes.
+        $tokenLoose = $lookupKey -replace '^(type|nombre|nom|de|du|des|la|le)+', ''
+        if (-not [string]::IsNullOrWhiteSpace($tokenLoose)) {
+            $bestKey = $valueLookup.Keys |
+                Where-Object {
+                    $k = [string]$_
+                    -not [string]::IsNullOrWhiteSpace($k) -and
+                    ($k -like "*$lookupKey*" -or $lookupKey -like "*$k*" -or $k -like "*$tokenLoose*" -or $tokenLoose -like "*$k*")
+                } |
+                Sort-Object Length -Descending |
+                Select-Object -First 1
+
+            if (-not [string]::IsNullOrWhiteSpace($bestKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$bestKey])) {
+                return $valueLookup[$bestKey]
+            }
+        }
+
+        return $MissingValue
+    }
+
+    $result = [regex]::Replace($TemplateText, '\[(?<token>[^\[\]\r\n]+)\]', $evaluator)
+    $result = [regex]::Replace($result, '(?i)\b(go|to)\s+\1\b', '$1')
+    if ([string]::IsNullOrWhiteSpace($result)) {
+        return $MissingValue
+    }
+
+    return $result.Trim()
+}
+
+function Select-DescriptionTemplatePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$TemplateMap,
+
+        [AllowNull()]
+        [string]$Brand,
+
+        [AllowNull()]
+        [string]$TypeBoitier
+    )
+
+    $brandKey = Convert-ToLookupKey $Brand
+    if ([string]::IsNullOrWhiteSpace($brandKey) -or $brandKey -notlike '*dell*') {
+        return $null
+    }
+
+    $brandLabel = Normalize-Key $Brand
+    $boitierKey = Normalize-Key $TypeBoitier
+
+    $candidate = 'dell'
+    if ($brandLabel -match '\blatitude\b') {
+        $candidate = 'delllatitude'
+    }
+    elseif ($boitierKey -match 'space[\s\-]*saving') {
+        $candidate = 'dellspacesaving'
+    }
+
+    if ($TemplateMap.ContainsKey($candidate)) {
+        return $TemplateMap[$candidate]
+    }
+
+    $matchKey = $null
+    if ($candidate -eq 'dell') {
+        $matchKey = $TemplateMap.Keys |
+            Where-Object { $_ -like '*dell*' -and $_ -notlike '*latitude*' -and $_ -notlike '*spacesaving*' } |
+            Sort-Object Length |
+            Select-Object -First 1
+    }
+    else {
+        $matchKey = $TemplateMap.Keys |
+            Where-Object { $_ -like "*$candidate*" } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($matchKey)) {
+        return $TemplateMap[$matchKey]
+    }
+
+    # Fallback final pour les DELL si aucun template specifique n'existe.
+    if ($TemplateMap.ContainsKey('dell')) {
+        return $TemplateMap['dell']
+    }
+
+    return $null
+}
+
 # Recupere tous les CSV du dossier
 $csvFiles = Get-ChildItem -Path $Folder -Filter '*.csv' -File
 if (-not $csvFiles) {
@@ -312,6 +570,20 @@ if (-not $csvFiles) {
 
 # Liste finale d'objets PowerShell (1 objet = 1 PC)
 $results = New-Object System.Collections.Generic.List[object]
+
+$descriptionTemplates = @{}
+if (Test-Path -Path $DescriptionTemplateFolder -PathType Container) {
+    $templateFiles = Get-ChildItem -Path $DescriptionTemplateFolder -Filter '*.txt' -File -ErrorAction SilentlyContinue
+    foreach ($templateFile in $templateFiles) {
+        $templateKey = Convert-ToLookupKey $templateFile.BaseName
+        if (-not [string]::IsNullOrWhiteSpace($templateKey) -and -not $descriptionTemplates.ContainsKey($templateKey)) {
+            $descriptionTemplates[$templateKey] = $templateFile.FullName
+        }
+    }
+}
+else {
+    Write-AppWarning "Dossier des descriptions introuvable : '$DescriptionTemplateFolder'. La colonne DescriptionOrdi sera a '$MissingValue'."
+}
 
 foreach ($file in $csvFiles) {
     try {
@@ -383,10 +655,13 @@ foreach ($file in $csvFiles) {
             $typeDdrSupporte = 'Aucun'
         }
 
+        $nomMarqueOrdinateur = GetFirstValue -FieldName 'NomMarqueOrdinateur' -Keys @("Nom de marque de l'ordinateur", 'Computer Brand Name', 'Brand Name', 'System Brand') -FallbackContains @('marque', 'ordinateur') -DefaultValue $MissingValue
+
         # Cree l'objet final pour ce PC
         $pcObject = [PSCustomObject]@{
-            SystemeOperateur          = GetFirstValue -FieldName 'SystemeOperateur' -Keys @('Systeme operateur', 'OperatingSystem', 'OS', 'Caption') -DefaultValue $MissingValue
-            NomMarqueOrdinateur       = GetFirstValue -FieldName 'NomMarqueOrdinateur' -Keys @("Nom de marque de l'ordinateur", 'Computer Brand Name', 'Brand Name', 'System Brand') -FallbackContains @('marque', 'ordinateur') -DefaultValue $MissingValue
+            SystemeOperateur          = Normalize-OperatingSystem -Value (GetFirstValue -FieldName 'SystemeOperateur' -Keys @('Systeme operateur', 'OperatingSystem', 'OS', 'Caption') -DefaultValue $MissingValue) -MissingValue $MissingValue
+            NomMarqueOrdinateur       = $nomMarqueOrdinateur
+            TypeBoitier               = GetFirstValue -FieldName 'TypeBoitier' -Keys @('Type de boitier', 'Type de boîtier', 'Chassis Type', 'Type de chassis') -DefaultValue $MissingValue
             NumeroSerie               = GetFirstValue -FieldName 'NumeroSerie' -Keys @('Numero de serie', 'Numéro de série', 'Serial Number', 'SerialNumber', 'System Serial Number', 'BIOS serial number') -FallbackContains @('serial') -DefaultValue $MissingValue
             NomProcesseur             = GetFirstValue -FieldName 'NomProcesseur' -Keys @('Nom du processeur', 'ProcessorName', 'CPUName', 'CPU') -DefaultValue $MissingValue
             NombreCoeurs              = GetFirstValue -FieldName 'NombreCoeurs' -Keys @('Nombre de coeurs de processeur', 'NumberOfCores', 'CPUCores', 'Cores') -DefaultValue $MissingValue
@@ -396,11 +671,26 @@ foreach ($file in $csvFiles) {
             TauxUsure                 = GetFirstValue -FieldName 'TauxUsure' -Keys @('Taux d usure', 'Taux d usure de la batterie', "Taux d'usure", 'BatteryWearLevel', 'BatteryWear', 'Usure batterie') -FallbackContains @('taux', 'usure') -DefaultValue $MissingValue
             JeuDePucesGraphiques      = GetFirstValue -FieldName 'JeuDePucesGraphiques' -Keys @('Jeu de puces graphiques', 'Graphics Chipset', 'Graphic Chipset', 'GPU Chipset', 'Nom de la puce graphique') -FallbackContains @('puces', 'graphi') -DefaultValue $MissingValue
             ModeleSSD                 = GetFirstValue -FieldName 'ModeleSSD' -Keys @('Modele du SSD', 'SSDModel', 'DiskModel', 'StorageModel', 'Modele de lecteur') -DefaultValue $MissingValue
-            CapaciteSSD               = GetFirstValue -FieldName 'CapaciteSSD' -Keys @('Capacite du SSD', 'SSDCapacity', 'DiskSize', 'StorageCapacity', 'Capacite du lecteur') -DefaultValue $MissingValue
+            CapaciteSSD               = Normalize-StorageCapacity -Value (GetFirstValue -FieldName 'CapaciteSSD' -Keys @('Capacite du SSD', 'SSDCapacity', 'DiskSize', 'StorageCapacity', 'Capacite du lecteur') -DefaultValue $MissingValue) -MissingValue $MissingValue
             ModeleCarteMere           = GetFirstValue -FieldName 'ModeleCarteMere' -Keys @('Modele de carte mere', 'BaseBoardModel', 'MotherboardModel', 'Carte mere') -DefaultValue $MissingValue
             VersionBIOS               = GetFirstValue -FieldName 'VersionBIOS' -Keys @('Version du BIOS', 'BIOSVersion', 'SMBIOSBIOSVersion', 'Version du BIOS du systeme') -DefaultValue $MissingValue
             SecureBoot                = GetFirstValue -FieldName 'SecureBoot' -Keys @('Etat du Secure Boot', 'SecureBootState', 'SecureBoot', 'Demarrage securise') -DefaultValue $MissingValue
+            }
+
+        $descriptionOrdi = $MissingValue
+        $matchedTemplatePath = Select-DescriptionTemplatePath -TemplateMap $descriptionTemplates -Brand $nomMarqueOrdinateur -TypeBoitier ([string]$pcObject.TypeBoitier)
+        if ($null -ne $matchedTemplatePath) {
+            $templatePath = $matchedTemplatePath
+            try {
+                $templateContent = Get-Content -Path $templatePath -Raw -Encoding UTF8
+                $descriptionOrdi = Get-DescriptionFromTemplate -TemplateText $templateContent -ComputerData $pcObject -MissingValue $MissingValue
+            }
+            catch {
+                Write-AppWarning "[$script:CurrentFile] Impossible de lire le fichier de description '$templatePath' : $($_.Exception.Message)"
+            }
         }
+
+        $pcObject | Add-Member -NotePropertyName 'DescriptionOrdi' -NotePropertyValue $descriptionOrdi
 
         [void]$results.Add($pcObject)
     }
