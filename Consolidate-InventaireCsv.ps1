@@ -735,8 +735,6 @@ foreach ($file in $csvFiles) {
             ModeleSSD                 = GetFirstValue -FieldName 'ModeleSSD' -Keys @('Modele du SSD', 'SSDModel', 'DiskModel', 'StorageModel', 'Modele de lecteur') -DefaultValue $MissingValue
             CapaciteSSD               = Normalize-StorageCapacity -Value (GetFirstValue -FieldName 'CapaciteSSD' -Keys @('Capacite du SSD', 'SSDCapacity', 'DiskSize', 'StorageCapacity', 'Capacite du lecteur') -DefaultValue $MissingValue) -MissingValue $MissingValue
             ModeleCarteMere           = GetFirstValue -FieldName 'ModeleCarteMere' -Keys @('Modele de carte mere', 'BaseBoardModel', 'MotherboardModel', 'Carte mere') -DefaultValue $MissingValue
-            VersionBIOS               = GetFirstValue -FieldName 'VersionBIOS' -Keys @('Version du BIOS', 'BIOSVersion', 'SMBIOSBIOSVersion', 'Version du BIOS du systeme') -DefaultValue $MissingValue
-            SecureBoot                = GetFirstValue -FieldName 'SecureBoot' -Keys @('Etat du Secure Boot', 'SecureBootState', 'SecureBoot', 'Demarrage securise') -DefaultValue $MissingValue
             }
 
         $descriptionOrdi = $MissingValue
