@@ -22,14 +22,9 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $false)]
     [ValidateNotNullOrEmpty()]
     [string]$Folder = 'E:\Programs\HWInfo',
-
-    [Parameter(Mandatory = $false)]
     [string]$Output,
-
-    [Parameter(Mandatory = $false)]
     [string]$DescriptionTemplateFolder = 'E:\Programs\HWInfo\SquelletteDescription'
 )
 
@@ -46,11 +41,9 @@ if (-not (Test-Path -Path $script:LogDirectory -PathType Container)) {
 
 function Write-Log {
     param(
-        [Parameter(Mandatory = $true)]
         [ValidateSet('INFO', 'WARN', 'ERROR')]
         [string]$Level,
 
-        [Parameter(Mandatory = $true)]
         [string]$Message
     )
 
@@ -201,6 +194,7 @@ function GetValue($key) {
     return $null
 }
 
+# Recherche une liste de cles possibles et retourne la premiere valeur non vide trouvee. Si aucune des cles n'est presente, ecrit un warning et retourne $null ou une valeur par defaut si fournie.
 function GetFirstValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -260,6 +254,7 @@ function GetFirstValue {
     return $null
 }
 
+# Version de GetFirstValue qui ne genere pas de warning si les cles sont absentes, pour les champs optionnels comme le support DDR.
 function GetFirstValueNoWarning {
     param(
         [Parameter(Mandatory = $true)]
@@ -284,6 +279,7 @@ function GetFirstValueNoWarning {
     return $null
 }
 
+# Teste si une valeur indique un support effectif (ex: "Oui", "Present", "Supported", "True", etc.) ou au contraire une absence de support (ex: "Non", "Not supported", "False", "0", etc.).
 function Test-IsSupportedValue {
     param(
         [AllowNull()]
@@ -307,6 +303,8 @@ function Test-IsSupportedValue {
     return $false
 }
 
+
+# Normalise les noms de systeme operateur pour faire correspondre les templates (ex: "Microsoft Windows 10 Pro" -> "Windows 10").
 function Normalize-OperatingSystem {
     param(
         [AllowNull()]
@@ -332,6 +330,7 @@ function Normalize-OperatingSystem {
     return $Value.Trim()
 }
 
+# Normalise les capacites de stockage pour faire correspondre les templates (ex: "256 Go (244,198 Megaoctets)" -> "256 Go", "512 Go" -> "512 Go", etc.).
 function Normalize-StorageCapacity {
     param(
         [AllowNull()]
@@ -372,6 +371,7 @@ function Normalize-StorageCapacity {
     return $Value.Trim()
 }
 
+# Normalise les cles pour faire correspondre les templates (ex: "Nom de marque de l'ordinateur" -> "nommarqueordinateur", "Type de boîtier" -> "typedeboitier", etc.).
 function Convert-ToLookupKey {
     param(
         [AllowNull()]
