@@ -386,6 +386,50 @@ function Convert-ToLookupKey {
     return ($normalized -replace '[^a-z0-9]', '')
 }
 
+# Regle metier specifique pour les DELL Latitude : la taille d'ecran en pouces est deduite 
+#du chiffre des centaines dans le numero de modele a 4 chiffres (ex: Latitude 5490 => 14 pouces, 
+#Latitude 5590 => 15 pouces, etc.).
+
+function Get-DellLatitudeScreenSizeInches {
+    param(
+        [AllowNull()]
+        [string]$Brand
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Brand)) {
+        return $null
+    }
+
+    $brandNormalized = Normalize-Key $Brand
+    if ($brandNormalized -notlike '*dell*' -or $brandNormalized -notlike '*latitude*') {
+        return $null
+    }
+
+    # Regle metier demandee : sur un modele a 4 chiffres, le chiffre des centaines
+    # indique la taille d'ecran (4 => 14 pouces, 5 => 15 pouces, etc.).
+    $modelMatch = [regex]::Match($Brand, '(?i)latitude[^0-9]*(?<model>\d{4})')
+    if (-not $modelMatch.Success) {
+        $modelMatch = [regex]::Match($Brand, '(?<model>\d{4})')
+    }
+
+    if (-not $modelMatch.Success) {
+        return $null
+    }
+
+    $modelRaw = $modelMatch.Groups['model'].Value
+    $modelNumber = 0
+    if (-not [int]::TryParse($modelRaw, [ref]$modelNumber)) {
+        return $null
+    }
+
+    $hundredsDigit = [math]::Floor(($modelNumber % 1000) / 100)
+    if ($hundredsDigit -lt 1 -or $hundredsDigit -gt 9) {
+        return $null
+    }
+
+    return [int](10 + $hundredsDigit)
+}
+
 function Get-DescriptionFromTemplate {
     param(
         [Parameter(Mandatory = $true)]
@@ -466,6 +510,18 @@ function Get-DescriptionFromTemplate {
         }
     }
 
+    $latitudeScreenSize = $null
+    $brandValue = [string]$ComputerData.NomMarqueOrdinateur
+    $latitudeScreenSize = Get-DellLatitudeScreenSizeInches -Brand $brandValue
+    if ($null -ne $latitudeScreenSize) {
+        $screenValue = ('{0} pouces' -f $latitudeScreenSize)
+        $valueLookup['tailleecran'] = $screenValue
+        $valueLookup['tailleecranpouces'] = $screenValue
+        $valueLookup['ecran'] = $screenValue
+        $valueLookup['ecranpouces'] = $screenValue
+        $valueLookup['pouces'] = [string]$latitudeScreenSize
+    }
+
     $evaluator = [System.Text.RegularExpressions.MatchEvaluator]{
         param($match)
 
@@ -499,6 +555,12 @@ function Get-DescriptionFromTemplate {
     $result = [regex]::Replace($result, '(?i)\b(go|to)\s+\1\b', '$1')
     if ([string]::IsNullOrWhiteSpace($result)) {
         return $MissingValue
+    }
+
+    if ($null -ne $latitudeScreenSize -and
+        $result -ne $MissingValue -and
+        $result -notmatch '(?i)\b[0-9]{2}\s*pouces?\b') {
+        $result = ('{0} - Ecran {1} pouces' -f $result.Trim().TrimEnd('.'), $latitudeScreenSize)
     }
 
     return $result.Trim()
