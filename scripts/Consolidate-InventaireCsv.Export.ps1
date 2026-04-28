@@ -24,7 +24,7 @@ function Export-InventoryToExcel {
             @{Name='Taille memoire'; Expression={ $_.MemoireTotale }}, `
             @{Name='Type DDR supporte'; Expression={ $_.TypeDDRSupporte }}, `
             @{Name='Taux d usure'; Expression={ $_.TauxUsure }}, `
-            @{Name='Carte Graphique'; Expression={ $_.CarteGraphique }}, `
+            @{Name='Carte Graphique'; Expression={ if (-not [string]::IsNullOrWhiteSpace($_.CarteGraphique) -and $_.CarteGraphique -ne 'N/A') { $_.CarteGraphique } else { 'Aucune' } }}, `
             @{Name='Modele SSD'; Expression={ $_.ModeleSSD }}, `
             @{Name='Commentaire'; Expression={ '' }}, `
             @{Name='Grade'; Expression={ if ((Convert-WearToPercentValue $_.TauxUsure) -gt 38.0) { 'HS' } else { '' } } }, `
@@ -129,7 +129,7 @@ function Export-AnnouncementInventoryToExcel {
             }}, `
             @{Name='Modele SSD'; Expression={ $_.ModeleSSD }}, `
             @{Name='Taux d usure'; Expression={ $_.TauxUsure }}, `
-            @{Name='Carte Graphique'; Expression={ $_.CarteGraphique }}, `
+            @{Name='Carte Graphique'; Expression={ if (-not [string]::IsNullOrWhiteSpace($_.CarteGraphique) -and $_.CarteGraphique -ne 'N/A') { $_.CarteGraphique } else { 'Aucune' } }}, `
             @{Name='Description'; Expression={ $_.DescriptionOrdi }} |
         Export-Excel -Path $OutputPath `
                      -WorksheetName 'Annonce' `

@@ -3,6 +3,7 @@
     Fonctions de lecture des CSV et de construction des objets PC.
 #>
 
+# Convertit une clé de type "Nom du processeur" en "NomProcesseur" pour lookup.
 function Load-DescriptionTemplates {
     param(
         [Parameter(Mandatory = $true)]
