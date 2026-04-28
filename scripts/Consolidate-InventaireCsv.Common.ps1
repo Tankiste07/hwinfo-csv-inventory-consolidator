@@ -125,6 +125,46 @@ function GetValue {
     return $null
 }
 
+function Find-FirstIndexedValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$FallbackContains
+    )
+
+    if (-not $FallbackContains -or $FallbackContains.Count -eq 0) {
+        return $null
+    }
+
+    foreach ($indexKey in $script:CurrentIndex.Keys) {
+        $allMatch = $true
+        foreach ($token in $FallbackContains) {
+            $nt = Normalize-Key $token
+            if ([string]::IsNullOrWhiteSpace($nt)) {
+                continue
+            }
+
+            if ($indexKey -notlike "*$nt*") {
+                $allMatch = $false
+                break
+            }
+        }
+
+        if (-not $allMatch) {
+            continue
+        }
+
+        $fallbackValue = $script:CurrentIndex[$indexKey] |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -First 1
+
+        if (-not [string]::IsNullOrWhiteSpace($fallbackValue)) {
+            return $fallbackValue
+        }
+    }
+
+    return $null
+}
+
 function GetFirstValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -149,29 +189,9 @@ function GetFirstValue {
     }
 
     if ($FallbackContains -and $FallbackContains.Count -gt 0) {
-        foreach ($indexKey in $script:CurrentIndex.Keys) {
-            $allMatch = $true
-            foreach ($token in $FallbackContains) {
-                $nt = Normalize-Key $token
-                if ([string]::IsNullOrWhiteSpace($nt)) {
-                    continue
-                }
-
-                if ($indexKey -notlike "*$nt*") {
-                    $allMatch = $false
-                    break
-                }
-            }
-
-            if ($allMatch) {
-                $fallbackValue = $script:CurrentIndex[$indexKey] |
-                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                    Select-Object -First 1
-
-                if (-not [string]::IsNullOrWhiteSpace($fallbackValue)) {
-                    return $fallbackValue
-                }
-            }
+        $fallbackValue = Find-FirstIndexedValue -FallbackContains $FallbackContains
+        if (-not [string]::IsNullOrWhiteSpace($fallbackValue)) {
+            return $fallbackValue
         }
     }
 
@@ -189,6 +209,9 @@ function GetFirstValueNoWarning {
         [string[]]$Keys,
 
         [Parameter(Mandatory = $false)]
+        [string[]]$FallbackContains,
+
+        [Parameter(Mandatory = $false)]
         [AllowEmptyString()]
         [string]$DefaultValue = $null
     )
@@ -198,6 +221,10 @@ function GetFirstValueNoWarning {
         if (-not [string]::IsNullOrWhiteSpace($v)) {
             return $v
         }
+    }
+
+    if ($FallbackContains -and $FallbackContains.Count -gt 0) {
+        return Find-FirstIndexedValue -FallbackContains $FallbackContains
     }
 
     if ($PSBoundParameters.ContainsKey('DefaultValue')) {
@@ -292,6 +319,122 @@ function Normalize-StorageCapacity {
     return $Value.Trim()
 }
 
+function Get-StorageCapacityFromModel {
+    param(
+        [AllowNull()]
+        [string]$Model
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Model)) {
+        return $null
+    }
+
+    $normalized = Normalize-Key $Model
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+        return $null
+    }
+
+    $match = [regex]::Match($normalized, '([0-9]+(?:[\.,][0-9]+)?)\s*(gb|go|tb|to)\b', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($match.Success) {
+        $num = $match.Groups[1].Value -replace '\.0+$', ''
+        $unit = $match.Groups[2].Value.ToLowerInvariant()
+        switch ($unit) {
+            'gb' { $unit = 'Go' }
+            'go' { $unit = 'Go' }
+            'tb' { $unit = 'To' }
+            'to' { $unit = 'To' }
+        }
+        return ('{0} {1}' -f $num, $unit)
+    }
+
+    return $null
+}
+
+function Get-StorageTypeFromModel {
+    param(
+        [AllowNull()]
+        [string]$Model
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Model)) {
+        return $null
+    }
+
+    $normalized = Normalize-Key $Model
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+        return $null
+    }
+
+    $lower = $normalized.ToLowerInvariant()
+
+    $ssdPatterns = @(
+        'ssd',
+        'solid state',
+        'nvme',
+        'm\.2',
+        '\bm2\b',
+        'pci[e]?e',
+        '\bmz7',
+        '\bmzv',
+        '\bmzn',
+        '\bkxg',
+        '\bkbg',
+        '\bhfs',
+        'liteon cv',
+        'liteoncv',
+        '\bpm871a?',
+        '\bpm991',
+        '\bpm9a1',
+        'samsung mz7',
+        'samsung mzv',
+        'samsung mzn',
+        'samsung mz',
+        'samsung pm9',
+        'hynix',
+        'intel',
+        'crucial',
+        'micron',
+        'kingston',
+        'sandisk',
+        'lexar'
+    )
+
+    $hddPatterns = @(
+        'hdd',
+        'hard drive',
+        'hard disk',
+        '5400\s*rpm',
+        '7200\s*rpm',
+        '5400rpm',
+        '7200rpm',
+        'rotational',
+        'rotationnel',
+        '\bst',
+        '\bwd',
+        '\bhts',
+        '\bmk',
+        '\bhgst',
+        'seagate',
+        'western digital',
+        'hitachi',
+        'toshiba'
+    )
+
+    foreach ($pattern in $ssdPatterns) {
+        if ($lower -match $pattern) {
+            return 'SSD'
+        }
+    }
+
+    foreach ($pattern in $hddPatterns) {
+        if ($lower -match $pattern) {
+            return 'HDD'
+        }
+    }
+
+    return $null
+}
+
 function Normalize-DiskType {
     param(
         [AllowNull()]
@@ -307,6 +450,11 @@ function Normalize-DiskType {
         [string]$MissingValue
     )
 
+    $storageType = Get-StorageTypeFromModel -Model $ModelSSD
+    if ($storageType) {
+        return $storageType
+    }
+
     $parts = @()
     if (-not [string]::IsNullOrWhiteSpace($RawType) -and $RawType -ne $MissingValue) { $parts += $RawType }
     if (-not [string]::IsNullOrWhiteSpace($Capacity) -and $Capacity -ne $MissingValue) { $parts += $Capacity }
@@ -314,8 +462,7 @@ function Normalize-DiskType {
 
     $source = ($parts -join ' ').ToLowerInvariant()
     if (-not [string]::IsNullOrWhiteSpace($source)) {
-        if ($source -match 'ssd|nvme|pci[e]?e|pcie|solid state|flash|m2\b|sata.*ssd|ssd') {
-            return 'SSD'
+            if ($source -match 'ssd|nvme|pci[e]?e|pcie|solid state|flash|m2\b|sata.*ssd') {
         }
 
         if ($source -match 'hdd|hard disk|hard drive|disk drive|disque dur|seagate|western digital|wd|toshiba|hitachi|mq') {
@@ -330,7 +477,7 @@ function Normalize-DiskType {
         }
     }
 
-    return $MissingValue
+    return 'Inconnu'
 }
 
 function Split-BrandAndModelFromName {

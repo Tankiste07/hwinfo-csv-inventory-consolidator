@@ -1,0 +1,8 @@
+﻿[2026-04-28 15:20:35] [INFO] Demarrage du script. Dossier source='E:\Programs\HWInfo', sortie=''
+[2026-04-28 15:20:37] [WARN] [DESKTOP-AC94JEQ.CSV] Champ introuvable : 'TauxUsure'
+[2026-04-28 15:20:40] [WARN] [DESKTOP-NHTK5OC.CSV] Champ introuvable : 'TauxUsure'
+[2026-04-28 15:20:42] [WARN] [optiplex3020sff.CSV] Champ introuvable : 'TauxUsure'
+[2026-04-28 15:20:44] [INFO] Export termine : E:\Programs\HWInfo\Inventaire_HWInfo.xlsx
+[2026-04-28 15:20:44] [INFO] Export annonce termine : E:\Programs\HWInfo\Inventaire_Annonce.xlsx
+[2026-04-28 15:20:44] [INFO] Nombre de postes exportes : 7
+[2026-04-28 15:20:44] [INFO] Log : C:\Users\33695\Documents\ScriptBrokerInfo\scripts\logs\inventaire-20260428-152035.log

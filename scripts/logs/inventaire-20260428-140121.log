@@ -1,0 +1,12 @@
+﻿[2026-04-28 14:01:21] [INFO] Demarrage du script. Dossier source='E:\Programs\HWInfo', sortie=''
+[2026-04-28 14:01:23] [WARN] [DESKTOP-AC94JEQ.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:23] [WARN] [DESKTOP-AC94JEQ.CSV] Champ introuvable : 'TauxUsure'
+[2026-04-28 14:01:24] [WARN] [DESKTOP-C2HV1G4.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:24] [WARN] [DESKTOP-FOCR6Q3.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:25] [WARN] [DESKTOP-NHTK5OC.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:25] [WARN] [DESKTOP-NHTK5OC.CSV] Champ introuvable : 'TauxUsure'
+[2026-04-28 14:01:26] [WARN] [DESKTOP-TRLS7K9.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:26] [WARN] [optiplex3020sff.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:27] [WARN] [optiplex3020sff.CSV] Champ introuvable : 'TauxUsure'
+[2026-04-28 14:01:27] [WARN] [TANKISTE07.CSV] Champ introuvable : 'TypeDisque'
+[2026-04-28 14:01:28] [ERROR] Impossible de trouver un paramètre correspondant au nom « WrapText ».

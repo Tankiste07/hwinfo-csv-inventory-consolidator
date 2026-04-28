@@ -118,10 +118,26 @@ function Build-ComputerObject {
     $nomMarqueOrdinateurRaw = GetFirstValue -FieldName 'NomMarqueOrdinateur' -Keys @("Nom de marque de l'ordinateur", 'Computer Brand Name', 'Brand Name', 'System Brand') -FallbackContains @('marque', 'ordinateur') -DefaultValue $MissingValue
     $modeleOrdinateurRaw = GetFirstValueNoWarning -Keys @('Modele', 'Model', 'Product Name', 'Model Name', 'System Model', 'Computer Model', 'Nom du modele', 'Nom du modèle') -DefaultValue $null
     $typeDdrSupporte = Get-SupportedDdrType -MissingValue $MissingValue
-    $diskTypeRaw = GetFirstValue -FieldName 'TypeDisque' -Keys @('Type de disque', 'Drive Type', 'Media Type', 'Disk Type', 'Storage Type', 'Type du disque') -DefaultValue $MissingValue
-    $rawCapacity = GetFirstValue -FieldName 'CapaciteSSD' -Keys @('Capacite du SSD', 'SSDCapacity', 'DiskSize', 'StorageCapacity', 'Capacite du lecteur') -DefaultValue $MissingValue
+    $diskTypeRaw = GetFirstValueNoWarning -Keys @('Type de disque', 'Drive Type', 'Media Type', 'Disk Type', 'Storage Type', 'Type du disque', 'TypeDisque', 'Disque dur', 'Disque SSD', 'Disque HDD', 'Type media', 'Storage Media') -FallbackContains @('disque', 'disk', 'storage', 'media', 'type') -DefaultValue $MissingValue
+    $rawCapacity = GetFirstValue -FieldName 'CapaciteSSD' -Keys @('Capacite du SSD', 'Capacite SSD', 'SSD Capacity', 'Capacity SSD', 'SSDSize', 'SSD Size', 'SSDCapacity', 'DiskSize', 'Disk Size', 'StorageCapacity', 'Storage Capacity', 'Capacite du lecteur', 'Disk Capacity', 'Capacity', 'Capacity du disque', 'Taille du disque', 'Taille disque') -DefaultValue $MissingValue
     $rawCpu = GetFirstValue -FieldName 'NomProcesseur' -Keys @('Nom du processeur', 'ProcessorName', 'CPUName', 'CPU') -DefaultValue $MissingValue
-    $rawModeleSSD = GetFirstValue -FieldName 'ModeleSSD' -Keys @('Modele du SSD', 'SSDModel', 'DiskModel', 'StorageModel', 'Modele de lecteur') -DefaultValue $MissingValue
+    $rawModeleSSD = GetFirstValue -FieldName 'ModeleSSD' -Keys @('Modele du SSD', 'SSDModel', 'DiskModel', 'StorageModel', 'Modele de lecteur', 'Model SSD', 'Nom SSD', 'SSD Model') -DefaultValue $MissingValue
+    $rawScreenSize = GetFirstValueNoWarning -Keys @('Taille de l ecran', 'Taille ecran', 'Taille d ecran', 'Screen Size', 'Display Size', 'TailleEcran', 'Ecran', 'Ecran Size', 'Taille d ecran (pouces)') -DefaultValue $null
+    $rawMotherboard = GetFirstValueNoWarning -Keys @(
+        'Carte mere', 'Carte mère', 'Motherboard', 'Motherboard Model',
+        'Baseboard Product', 'Baseboard Name', 'BaseBoard Product', 'BaseBoard Name',
+        'Motherboard Product', 'Motherboard Name', 'Mainboard', 'Main Board',
+        'System Board', 'Board Product', 'Board Name', 'Model de carte mere', 'Modele de carte mere', 'Modele carte mere', 'CarteMere'
+    ) -FallbackContains @('carte', 'mere', 'motherboard', 'baseboard', 'board', 'mainboard', 'mobo') -DefaultValue $null
+    $rawCoreCount = GetFirstValueNoWarning -Keys @('Nombre de coeurs', 'Cores', 'Core Count', 'CPU Cores', 'Processor Cores', 'Nbr Coeurs') -DefaultValue $null
+    $rawThreadCount = GetFirstValueNoWarning -Keys @('Nombre de threads', 'Threads', 'Thread Count', 'Logical Processors', 'CPU Threads', 'Processor Threads') -DefaultValue $null
+
+    if (([string]::IsNullOrWhiteSpace($rawCapacity) -or $rawCapacity -eq $MissingValue) -and -not [string]::IsNullOrWhiteSpace($rawModeleSSD) -and $rawModeleSSD -ne $MissingValue) {
+        $inferredCapacity = Get-StorageCapacityFromModel -Model $rawModeleSSD
+        if (-not [string]::IsNullOrWhiteSpace($inferredCapacity)) {
+            $rawCapacity = $inferredCapacity
+        }
+    }
 
     $brandModel = Split-BrandAndModelFromName -RawName $nomMarqueOrdinateurRaw
     $nomMarqueOrdinateur = if (-not [string]::IsNullOrWhiteSpace($brandModel.Brand)) { $brandModel.Brand } else { $nomMarqueOrdinateurRaw }
@@ -136,9 +152,13 @@ function Build-ComputerObject {
         NumeroSerie               = GetFirstValue -FieldName 'NumeroSerie' -Keys @('Numero de serie', 'Numéro de série', 'Serial Number', 'SerialNumber', 'System Serial Number', 'BIOS serial number') -FallbackContains @('serial') -DefaultValue $MissingValue
         MemoireTotale             = GetFirstValue -FieldName 'MemoireTotale' -Keys @('Taille totale de la memoire', 'TotalMemory', 'MemoryTotal', 'RAM', 'Memoire physique totale') -DefaultValue $MissingValue
         TypeDDRSupporte           = $typeDdrSupporte
-        TauxUsure                 = GetFirstValue -FieldName 'TauxUsure' -Keys @('Taux d usure', 'Taux d usure de la batterie', "Taux d'usure", 'BatteryWearLevel', 'BatteryWear', 'Usure batterie') -FallbackContains @('taux', 'usure') -DefaultValue $MissingValue
+        TauxUsure                 = GetFirstValue -FieldName 'TauxUsure' -Keys @('Taux d usure', 'Taux d usure de la batterie', "Taux d'usure", 'BatteryWearLevel', 'BatteryWear', 'Usure batterie', 'Battery Wear', 'Wear Level', 'Degre d usure', 'Etat batterie', 'Battery Status') -FallbackContains @('taux', 'usure', 'wear', 'batterie') -DefaultValue $MissingValue
         CarteGraphique            = GetFirstValue -FieldName 'CarteGraphique' -Keys @('Jeu de puces graphiques', 'Graphics Chipset', 'Graphic Chipset', 'GPU Chipset', 'Nom de la puce graphique') -FallbackContains @('puces', 'graphi') -DefaultValue $MissingValue
         ModeleSSD                 = $rawModeleSSD
+        TailleEcran               = if ([string]::IsNullOrWhiteSpace($rawScreenSize)) { $MissingValue } else { $rawScreenSize }
+        ModeleCarteMere           = if ([string]::IsNullOrWhiteSpace($rawMotherboard)) { $MissingValue } else { $rawMotherboard }
+        NombreCoeurs              = if ([string]::IsNullOrWhiteSpace($rawCoreCount)) { $MissingValue } else { $rawCoreCount }
+        NombreProcesseursLogiques = if ([string]::IsNullOrWhiteSpace($rawThreadCount)) { $MissingValue } else { $rawThreadCount }
         CapaciteSSD               = Normalize-StorageCapacity -Value $rawCapacity -MissingValue $MissingValue
         TypeDisque                = Normalize-DiskType -RawType $diskTypeRaw -Capacity $rawCapacity -ModelSSD $rawModeleSSD -MissingValue $MissingValue
     }

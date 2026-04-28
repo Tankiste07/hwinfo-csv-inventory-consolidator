@@ -112,16 +112,8 @@ function Get-DescriptionFromTemplate {
         'nommarque'   = 'NomMarqueOrdinateur'
         'serial'      = 'NumeroSerie'
         'numeroserie' = 'NumeroSerie'
-        'processeur'  = 'NomProcesseur'
-        'cpu'         = 'NomProcesseur'
-        'coeur'       = 'NombreCoeurs'
-        'coeurs'      = 'NombreCoeurs'
-        'cœur'        = 'NombreCoeurs'
-        'cœurs'       = 'NombreCoeurs'
-        'nombredecoeurs' = 'NombreCoeurs'
-        'threads'     = 'NombreProcesseursLogiques'
-        'thread'      = 'NombreProcesseursLogiques'
-        'nombrethreads' = 'NombreProcesseursLogiques'
+        'processeur'  = 'Processeur'
+        'cpu'         = 'Processeur'
         'os'          = 'SystemeOperateur'
         'systeme'     = 'SystemeOperateur'
         'ram'         = 'MemoireTotale'
@@ -129,8 +121,20 @@ function Get-DescriptionFromTemplate {
         'memoireddr3l' = 'MemoireTotale'
         'memoireddr4' = 'MemoireTotale'
         'ssd'         = 'CapaciteSSD'
-        'cartegraphique' = 'Carte graphique'
-        'carte graphique' = 'Carte graphique'
+        'tailledisque' = 'CapaciteSSD'
+        'capacitedisque' = 'CapaciteSSD'
+        'taillessd'   = 'CapaciteSSD'
+        'typedisque'  = 'TypeDisque'
+        'modelessd'   = 'ModeleSSD'
+        'cartegraphique' = 'CarteGraphique'
+        'carte graphique' = 'CarteGraphique'
+        'typeboit'    = 'TypeBoitier'
+        'typeboitier' = 'TypeBoitier'
+        'tailleecran' = 'TailleEcran'
+        'modelecartemere' = 'ModeleCarteMere'
+        'modele carte mere' = 'ModeleCarteMere'
+        'modele de carte mere' = 'ModeleCarteMere'
+        'carte mere modele' = 'ModeleCarteMere'
     }
 
     foreach ($alias in $aliasToProperty.Keys) {
@@ -158,8 +162,11 @@ function Get-DescriptionFromTemplate {
 
         $token = $match.Groups['token'].Value
         $lookupKey = Convert-ToLookupKey $token
-        if ($valueLookup.ContainsKey($lookupKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$lookupKey])) {
-            return $valueLookup[$lookupKey]
+        if ($valueLookup.ContainsKey($lookupKey)) {
+            $lookupValue = [string]$valueLookup[$lookupKey]
+            if (-not [string]::IsNullOrWhiteSpace($lookupValue) -and $lookupValue -ne $MissingValue) {
+                return $lookupValue
+            }
         }
 
         $tokenLoose = $lookupKey -replace '^(type|nombre|nom|de|du|des|la|le)+', ''
@@ -173,8 +180,32 @@ function Get-DescriptionFromTemplate {
                 Sort-Object Length -Descending |
                 Select-Object -First 1
 
-            if (-not [string]::IsNullOrWhiteSpace($bestKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$bestKey])) {
-                return $valueLookup[$bestKey]
+            if (-not [string]::IsNullOrWhiteSpace($bestKey)) {
+                $bestValue = [string]$valueLookup[$bestKey]
+                if (-not [string]::IsNullOrWhiteSpace($bestValue) -and $bestValue -ne $MissingValue) {
+                    return $bestValue
+                }
+            }
+
+            $tokenParts = ($tokenLoose -split '([a-z]+)') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            if ($tokenParts.Count -gt 1) {
+                $tokenParts = $tokenParts | Where-Object { $_ -notmatch '^(type|nombre|nom|de|du|des|la|le)$' }
+                foreach ($key in $valueLookup.Keys) {
+                    $matchAll = $true
+                    foreach ($part in $tokenParts) {
+                        if ([string]::IsNullOrWhiteSpace($part)) { continue }
+                        if (-not ([string]$key -like "*$part*")) {
+                            $matchAll = $false
+                            break
+                        }
+                    }
+                    if ($matchAll) {
+                        $bestValue = [string]$valueLookup[$key]
+                        if (-not [string]::IsNullOrWhiteSpace($bestValue) -and $bestValue -ne $MissingValue) {
+                            return $bestValue
+                        }
+                    }
+                }
             }
         }
 

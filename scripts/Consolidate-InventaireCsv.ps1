@@ -65,6 +65,16 @@ if (Test-Path -Path $Output) {
     }
 }
 
+$AnnouncementOutput = Join-Path -Path (Split-Path -Path $Output -Parent) -ChildPath 'Inventaire_Annonce.xlsx'
+if (Test-Path -Path $AnnouncementOutput) {
+    try {
+        Remove-Item -Path $AnnouncementOutput -Force -ErrorAction Stop
+    }
+    catch {
+        Exit-WithMessage -Message "Impossible de supprimer l'ancien fichier Excel '$AnnouncementOutput' (fichier ouvert ?). Fermez-le et relancez." -Code 21
+    }
+}
+
 if (-not (Test-Path -Path $Folder -PathType Container)) {
     Exit-WithMessage -Message "Le dossier source n'existe pas : $Folder" -Code 11
 }
@@ -101,10 +111,12 @@ if ($results.Count -eq 0) {
 }
 
 Export-InventoryToExcel -Items $results -OutputPath $Output
+Export-AnnouncementInventoryToExcel -Items $results -OutputPath $AnnouncementOutput
 Highlight-HighWearRows -OutputPath $Output -MissingValue $MissingValue -Threshold 38.0
 Remove-SourceCsvFiles -CsvFiles $csvFiles
 
 Write-AppInfo "Export termine : $Output"
+Write-AppInfo "Export annonce termine : $AnnouncementOutput"
 Write-AppInfo "Nombre de postes exportes : $($results.Count)"
 Write-AppInfo "Log : $script:LogFile"
 exit 0
