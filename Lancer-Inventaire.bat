@@ -13,7 +13,7 @@ echo Verification des dependances...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Get-Module -ListAvailable -Name ImportExcel) { exit 0 } else { exit 1 }"
 if errorlevel 1 (
     echo ImportExcel non detecte. Installation en cours...
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Dependencies.ps1"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Install-Dependencies.ps1"
     if not "%ERRORLEVEL%"=="0" (
         echo.
         echo Erreur: impossible d'installer les dependances.
@@ -24,7 +24,7 @@ if errorlevel 1 (
 )
 
 REM Lance le script PowerShell avec une policy temporaire pour cette execution
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Consolidate-InventaireCsv.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Consolidate-InventaireCsv.ps1"
 set "EXITCODE=%ERRORLEVEL%"
 
 if not "%EXITCODE%"=="0" (

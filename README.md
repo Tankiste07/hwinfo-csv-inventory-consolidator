@@ -1,9 +1,13 @@
 # Consolidation Inventaire CSV vers Excel
 
 ## Fichiers
-- `Consolidate-InventaireCsv.ps1` : script principal
-- `Install-Dependencies.ps1` : installe le module `ImportExcel`
-- `Lancer-Inventaire.bat` : lance la consolidation avec verification des dependances
+- `scripts/Consolidate-InventaireCsv.ps1` : script principal
+- `scripts/Consolidate-InventaireCsv.Common.ps1` : fonctions communes de journalisation et normalisation
+- `scripts/Consolidate-InventaireCsv.Data.ps1` : lecture des CSV et construction des objets PC
+- `scripts/Consolidate-InventaireCsv.Description.ps1` : generation de descriptions a partir de templates
+- `scripts/Consolidate-InventaireCsv.Export.ps1` : export Excel et nettoyage des sources
+- `scripts/Install-Dependencies.ps1` : installe le module `ImportExcel`
+- `scripts/Lancer-Inventaire.bat` : lance la consolidation avec verification des dependances
 
 ## Prerequis
 - Windows PowerShell 5.1+
@@ -14,19 +18,19 @@
 2. Installer la dependance :
 
 ```powershell
-.\Install-Dependencies.ps1
+.\scripts\Install-Dependencies.ps1
 ```
 
 3. Lancer la consolidation :
 
 ```powershell
-.\Consolidate-InventaireCsv.ps1 -Folder "C:\Chemin\Vers\DossierCSV" -Output "C:\Chemin\Vers\InventaireFinal.xlsx"
+.\scripts\Consolidate-InventaireCsv.ps1 -Folder "C:\Chemin\Vers\DossierCSV" -Output "C:\Chemin\Vers\InventaireFinal.xlsx"
 ```
 
 4. Ou lancer avec les valeurs par defaut :
 
 ```powershell
-.\Consolidate-InventaireCsv.ps1
+.\scripts\Consolidate-InventaireCsv.ps1
 ```
 
 5. Ou lancer en double-cliquant sur :
