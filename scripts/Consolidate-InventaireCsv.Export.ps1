@@ -255,3 +255,4 @@ function Remove-SourceCsvFiles {
         }
     }
 }
+    
