@@ -128,11 +128,11 @@ function Get-DescriptionLookupFromComputerData {
     }
 
     foreach ($alias in $aliasToProperty.Keys) {
-        $propertyKey = Convert-ToLookupKey $aliasToProperty[$alias]
+        $propertyKey = (Convert-ToLookupKey $aliasToProperty[$alias])
         if ($lookup.ContainsKey($propertyKey)) {
             $value = [string]$lookup[$propertyKey]
             if (-not [string]::IsNullOrWhiteSpace($value) -and $value -ne $MissingValue) {
-                $lookup[Convert-ToLookupKey $alias] = $value
+                $lookup[(Convert-ToLookupKey $alias)] = $value
             }
         }
     }

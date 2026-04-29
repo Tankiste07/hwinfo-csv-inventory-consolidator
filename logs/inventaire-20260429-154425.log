@@ -1,0 +1,9 @@
+﻿[2026-04-29 15:44:25] [ERROR] Au caractère C:\Users\33695\Documents\ScriptBrokerInfo\scripts\Consolidate-InventaireCsv.Description.ps1:135 : 25
++                 $lookup[Convert-ToLookupKey $alias] = $value
++                         ~
+L’expression d’index de tableau est manquante ou non valide.
+
+Au caractère C:\Users\33695\Documents\ScriptBrokerInfo\scripts\Consolidate-InventaireCsv.Description.ps1:135 : 25
++                 $lookup[Convert-ToLookupKey $alias] = $value
++                         ~~~~~~~~~~~~~~~~~~~
+Jeton inattendu « Convert-ToLookupKey » dans l’expression ou l’instruction.

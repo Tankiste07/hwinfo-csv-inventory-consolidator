@@ -18,7 +18,7 @@ function Export-InventoryToExcel {
             @{Name='Modele'; Expression={ $_.ModeleOrdinateur }}, `
             @{Name='N de serie'; Expression={ $_.NumeroSerie }}, `
             @{Name='Processeur'; Expression={ $_.Processeur }}, `
-            @{Name='Type de boitier'; Expression={ $_.TypeBoitier }}, `
+            @{Name='Type de boitier'; Expression={ $_.TypeBoitierDetecte }}, `
             @{Name='Taille disque'; Expression={ $_.CapaciteSSD }}, `
             @{Name='Type de disque'; Expression={ $_.TypeDisque }}, `
             @{Name='Taille memoire'; Expression={ $_.MemoireTotale }}, `
@@ -58,7 +58,7 @@ function Export-InventoryToExcel {
                 $validation.Error = 'Choisissez A, B, C ou HS dans la liste.'
                 $validation.ShowInputMessage = $true
                 $validation.PromptTitle = 'Grade'
-                $validation.Prompt = 'Sélectionnez A, B, C ou HS'
+                $validation.Prompt = 'Selectionnez A, B, C ou HS'
                 $validation.Formula.Values.Add('A')
                 $validation.Formula.Values.Add('B')
                 $validation.Formula.Values.Add('C')
@@ -110,7 +110,7 @@ function Export-AnnouncementInventoryToExcel {
             @{Name='N de serie'; Expression={ $_.NumeroSerie }}, `
             @{Name='Systeme'; Expression={ $_.SystemeOperateur }}, `
             @{Name='Processeur'; Expression={ $_.Processeur }}, `
-            @{Name='Type de boitier'; Expression={ $_.TypeBoitier }}, `
+            @{Name='Type de boitier'; Expression={ $_.TypeBoitierDetecte }}, `
             @{Name='Memoire totale'; Expression={ $_.MemoireTotale }}, `
             @{Name='Type DDR supporte'; Expression={ $_.TypeDDRSupporte }}, `
             @{Name='Disque'; Expression={
@@ -255,4 +255,3 @@ function Remove-SourceCsvFiles {
         }
     }
 }
-    

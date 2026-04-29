@@ -133,6 +133,8 @@ function Build-ComputerObject {
     $rawCoreCount = GetFirstValueNoWarning -Keys @('Nombre de coeurs', 'Cores', 'Core Count', 'CPU Cores', 'Processor Cores', 'Nbr Coeurs') -DefaultValue $null
     $rawThreadCount = GetFirstValueNoWarning -Keys @('Nombre de threads', 'Threads', 'Thread Count', 'Logical Processors', 'CPU Threads', 'Processor Threads') -DefaultValue $null
 
+    $rawTypeBoitier = GetFirstValue -FieldName 'TypeBoitier' -Keys @('Type de boitier', 'Type de boîtier', 'Chassis Type', 'Type de chassis') -DefaultValue $MissingValue
+
     if (([string]::IsNullOrWhiteSpace($rawCapacity) -or $rawCapacity -eq $MissingValue) -and -not [string]::IsNullOrWhiteSpace($rawModeleSSD) -and $rawModeleSSD -ne $MissingValue) {
         $inferredCapacity = Get-StorageCapacityFromModel -Model $rawModeleSSD
         if (-not [string]::IsNullOrWhiteSpace($inferredCapacity)) {
@@ -143,13 +145,15 @@ function Build-ComputerObject {
     $brandModel = Split-BrandAndModelFromName -RawName $nomMarqueOrdinateurRaw
     $nomMarqueOrdinateur = if (-not [string]::IsNullOrWhiteSpace($brandModel.Brand)) { $brandModel.Brand } else { $nomMarqueOrdinateurRaw }
     $modeleOrdinateur = if ([string]::IsNullOrWhiteSpace($modeleOrdinateurRaw) -or $modeleOrdinateurRaw -eq $MissingValue) { $brandModel.Model } else { $modeleOrdinateurRaw }
+    $detectedTypeBoitier = Select-DescriptionType -TypeBoitier ([string]$rawTypeBoitier) -Model ([string]$modeleOrdinateur) -Brand $nomMarqueOrdinateur -Motherboard ([string]$rawMotherboard)
 
     $pcObject = [PSCustomObject]@{
         SystemeOperateur          = Normalize-OperatingSystem -Value (GetFirstValue -FieldName 'SystemeOperateur' -Keys @('Systeme operateur', 'OperatingSystem', 'OS', 'Caption') -DefaultValue $MissingValue) -MissingValue $MissingValue
         NomMarqueOrdinateur       = $nomMarqueOrdinateur
         ModeleOrdinateur          = if ([string]::IsNullOrWhiteSpace($modeleOrdinateur)) { $MissingValue } else { $modeleOrdinateur }
         Processeur                = $rawCpu
-        TypeBoitier               = GetFirstValue -FieldName 'TypeBoitier' -Keys @('Type de boitier', 'Type de boîtier', 'Chassis Type', 'Type de chassis') -DefaultValue $MissingValue
+        TypeBoitier               = $rawTypeBoitier
+        TypeBoitierDetecte        = $detectedTypeBoitier
         NumeroSerie               = GetFirstValue -FieldName 'NumeroSerie' -Keys @('Numero de serie', 'Numéro de série', 'Serial Number', 'SerialNumber', 'System Serial Number', 'BIOS serial number') -FallbackContains @('serial') -DefaultValue $MissingValue
         MemoireTotale             = GetFirstValue -FieldName 'MemoireTotale' -Keys @('Taille totale de la memoire', 'TotalMemory', 'MemoryTotal', 'RAM', 'Memoire physique totale') -DefaultValue $MissingValue
         TypeDDRSupporte           = $typeDdrSupporte
