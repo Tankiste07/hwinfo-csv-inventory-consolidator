@@ -32,7 +32,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $MissingValue = 'N/A'
 
-$script:LogDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'logs'
+$script:LogDirectory = Join-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -ChildPath 'logs'
 $script:LogFile = Join-Path -Path $script:LogDirectory -ChildPath ("inventaire-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 if (-not (Test-Path -Path $script:LogDirectory -PathType Container)) {
     New-Item -Path $script:LogDirectory -ItemType Directory -Force | Out-Null
