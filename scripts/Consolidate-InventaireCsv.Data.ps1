@@ -164,8 +164,9 @@ function Build-ComputerObject {
         TypeDisque                = Normalize-DiskType -RawType $diskTypeRaw -Capacity $rawCapacity -ModelSSD $rawModeleSSD -MissingValue $MissingValue
     }
 
+    $descriptionType = Select-DescriptionType -TypeBoitier ([string]$pcObject.TypeBoitier) -Model ([string]$pcObject.ModeleOrdinateur) -Brand $nomMarqueOrdinateur -Motherboard ([string]$pcObject.ModeleCarteMere)
     $descriptionOrdi = $MissingValue
-    $matchedTemplatePath = Select-DescriptionTemplatePath -TemplateMap $DescriptionTemplates -Brand $nomMarqueOrdinateur -TypeBoitier ([string]$pcObject.TypeBoitier)
+    $matchedTemplatePath = Select-DescriptionTemplatePath -TemplateMap $DescriptionTemplates -Brand $nomMarqueOrdinateur -TypeBoitier ([string]$pcObject.TypeBoitier) -Model ([string]$pcObject.ModeleOrdinateur) -Motherboard ([string]$pcObject.ModeleCarteMere)
     if ($null -ne $matchedTemplatePath) {
         try {
             $templateContent = Get-Content -Path $matchedTemplatePath -Raw -Encoding UTF8
@@ -176,6 +177,8 @@ function Build-ComputerObject {
         }
     }
 
+    $pcObject | Add-Member -NotePropertyName 'DescriptionType' -NotePropertyValue $descriptionType
     $pcObject | Add-Member -NotePropertyName 'DescriptionOrdi' -NotePropertyValue $descriptionOrdi
+    $pcObject | Add-Member -NotePropertyName 'DescriptionTemplatePath' -NotePropertyValue $matchedTemplatePath
     return $pcObject
 }

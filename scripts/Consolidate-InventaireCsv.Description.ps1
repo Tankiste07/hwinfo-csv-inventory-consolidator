@@ -3,6 +3,50 @@
     Fonctions de selection et de generation de descriptions a partir de templates.
 #>
 
+function Select-DescriptionType {
+    param(
+        [AllowNull()]
+        [string]$TypeBoitier,
+
+        [AllowNull()]
+        [string]$Model,
+
+        [AllowNull()]
+        [string]$Brand,
+
+        [AllowNull()]
+        [string]$Motherboard
+    )
+
+    $typeBoitierKey = Normalize-Key $TypeBoitier
+    $modelKey = Normalize-Key $Model
+    $brandKey = Normalize-Key $Brand
+    $motherboardKey = Normalize-Key $Motherboard
+    $haystack = "{0} {1} {2} {3}" -f $typeBoitierKey, $modelKey, $brandKey, $motherboardKey
+
+    if ($typeBoitierKey -match '\b(laptop|notebook|portable)\b' -or $modelKey -match '\b(latitude|thinkpad|probook|elitebook)\b') {
+        return 'Portable'
+    }
+
+    if ($haystack -match '\b(dell\s*3040|optiplex\s*3050|optiplex\s*3046|thinkcentre\s*m900)\b') {
+        return 'Mini'
+    }
+
+    if ($haystack -match '\b(micro|tiny|mini|usff|ultra small form factor)\b') {
+        return 'Mini'
+    }
+
+    if ($haystack -match '\b(sff|small form factor|space[-\s]*saving)\b') {
+        return 'SFF'
+    }
+
+    if ($haystack -match '\b(tower|tour|mt|mini tower)\b') {
+        return 'Tour'
+    }
+
+    return 'Tour'
+}
+
 function Select-DescriptionTemplatePath {
     param(
         [Parameter(Mandatory = $true)]
@@ -12,49 +56,37 @@ function Select-DescriptionTemplatePath {
         [string]$Brand,
 
         [AllowNull()]
-        [string]$TypeBoitier
+        [string]$TypeBoitier,
+
+        [AllowNull()]
+        [string]$Model,
+
+        [AllowNull()]
+        [string]$Motherboard
     )
 
-    $brandKey = Convert-ToLookupKey $Brand
-    if ([string]::IsNullOrWhiteSpace($brandKey) -or $brandKey -notlike '*dell*') {
-        return $null
+    $descriptionType = Select-DescriptionType -TypeBoitier $TypeBoitier -Model $Model -Brand $Brand -Motherboard $Motherboard
+    $templateKey = switch ($descriptionType) {
+        'Portable' { 'pcportable' }
+        'Mini'     { 'mini' }
+        'SFF'      { 'sff' }
+        default    { 'tour' }
     }
 
-    $brandLabel = Normalize-Key $Brand
-    $boitierKey = Normalize-Key $TypeBoitier
-
-    $candidate = 'dell'
-    if ($brandLabel -match '\blatitude\b') {
-        $candidate = 'delllatitude'
-    }
-    elseif ($boitierKey -match 'space[\s\-]*saving') {
-        $candidate = 'dellspacesaving'
+    if ($TemplateMap.ContainsKey($templateKey)) {
+        return $TemplateMap[$templateKey]
     }
 
-    if ($TemplateMap.ContainsKey($candidate)) {
-        return $TemplateMap[$candidate]
+    $fallbackKey = $TemplateMap.Keys |
+        Where-Object { $_ -like "*$templateKey*" } |
+        Sort-Object Length |
+        Select-Object -First 1
+    if (-not [string]::IsNullOrWhiteSpace($fallbackKey)) {
+        return $TemplateMap[$fallbackKey]
     }
 
-    $matchKey = $null
-    if ($candidate -eq 'dell') {
-        $matchKey = $TemplateMap.Keys |
-            Where-Object { $_ -like '*dell*' -and $_ -notlike '*latitude*' -and $_ -notlike '*spacesaving*' } |
-            Sort-Object Length |
-            Select-Object -First 1
-    }
-    else {
-        $matchKey = $TemplateMap.Keys |
-            Where-Object { $_ -like "*$candidate*" } |
-            Sort-Object Length -Descending |
-            Select-Object -First 1
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($matchKey)) {
-        return $TemplateMap[$matchKey]
-    }
-
-    if ($TemplateMap.ContainsKey('dell')) {
-        return $TemplateMap['dell']
+    if ($TemplateMap.ContainsKey('tour')) {
+        return $TemplateMap['tour']
     }
 
     return $null
@@ -85,78 +117,40 @@ function Get-DescriptionFromTemplate {
         }
     }
 
-    $memoireTotaleKey = Convert-ToLookupKey 'MemoireTotale'
-    if ($valueLookup.ContainsKey($memoireTotaleKey)) {
-        $mem = [string]$valueLookup[$memoireTotaleKey]
-        $memMatch = [regex]::Match($mem, '([0-9]+(?:[\.,][0-9]+)?)')
-        if ($memMatch.Success) {
-            $memNum = $memMatch.Groups[1].Value
-            $valueLookup['ramgo'] = $memNum
-            $valueLookup['memoirego'] = $memNum
-        }
-    }
-
-    $capaciteSsdKey = Convert-ToLookupKey 'CapaciteSSD'
-    if ($valueLookup.ContainsKey($capaciteSsdKey)) {
-        $ssd = [string]$valueLookup[$capaciteSsdKey]
-        $ssdMatch = [regex]::Match($ssd, '([0-9]+(?:[\.,][0-9]+)?)')
-        if ($ssdMatch.Success) {
-            $ssdNum = $ssdMatch.Groups[1].Value
-            $valueLookup['ssdgo'] = $ssdNum
-            $valueLookup['capacitessdgo'] = $ssdNum
-        }
-    }
+    $valueLookup.Remove((Convert-ToLookupKey 'TauxUsure')) | Out-Null
 
     $aliasToProperty = @{
-        'marque'      = 'NomMarqueOrdinateur'
-        'nommarque'   = 'NomMarqueOrdinateur'
-        'serial'      = 'NumeroSerie'
-        'numeroserie' = 'NumeroSerie'
-        'processeur'  = 'Processeur'
-        'cpu'         = 'Processeur'
-        'os'          = 'SystemeOperateur'
-        'systeme'     = 'SystemeOperateur'
-        'ram'         = 'MemoireTotale'
-        'memoire'     = 'MemoireTotale'
-        'memoireddr3l' = 'MemoireTotale'
-        'memoireddr4' = 'MemoireTotale'
-        'ssd'         = 'CapaciteSSD'
-        'tailledisque' = 'CapaciteSSD'
-        'capacitedisque' = 'CapaciteSSD'
-        'taillessd'   = 'CapaciteSSD'
-        'typedisque'  = 'TypeDisque'
-        'modelessd'   = 'ModeleSSD'
-        'cartegraphique' = 'CarteGraphique'
-        'carte graphique' = 'CarteGraphique'
-        'typeboit'    = 'TypeBoitier'
-        'typeboitier' = 'TypeBoitier'
-        'tailleecran' = 'TailleEcran'
-        'modelecartemere' = 'ModeleCarteMere'
-        'modele carte mere' = 'ModeleCarteMere'
-        'modele de carte mere' = 'ModeleCarteMere'
-        'carte mere modele' = 'ModeleCarteMere'
+        'marque'                  = 'NomMarqueOrdinateur'
+        'nommarque'               = 'NomMarqueOrdinateur'
+        'modele'                  = 'ModeleOrdinateur'
+        'processeur'              = 'Processeur'
+        'memoiretotale'           = 'MemoireTotale'
+        'typeddrsupporte'         = 'TypeDDRSupporte'
+        'typedisque'              = 'TypeDisque'
+        'tailledisque'            = 'CapaciteSSD'
+        'modelessd'               = 'ModeleSSD'
+        'cartegraphique'          = 'CarteGraphique'
+        'systeme'                 = 'SystemeOperateur'
+        'typeboit'                = 'TypeBoitier'
+        'typeboitier'             = 'TypeBoitier'
+        'tailleecran'             = 'TailleEcran'
+        'nombrecoeurs'            = 'NombreCoeurs'
+        'nombreprocesseurslogiques' = 'NombreProcesseursLogiques'
+        'modelecartemere'         = 'ModeleCarteMere'
+        'modele carte mere'       = 'ModeleCarteMere'
+        'modele de carte mere'    = 'ModeleCarteMere'
+        'carte mere modele'       = 'ModeleCarteMere'
     }
 
     foreach ($alias in $aliasToProperty.Keys) {
         $propertyName = $aliasToProperty[$alias]
         $propertyKey = Convert-ToLookupKey $propertyName
-        if ($valueLookup.ContainsKey($propertyKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$propertyKey])) {
+        if ($valueLookup.ContainsKey($propertyKey) -and -not [string]::IsNullOrWhiteSpace($valueLookup[$propertyKey]) -and $valueLookup[$propertyKey] -ne $MissingValue) {
             $valueLookup[(Convert-ToLookupKey $alias)] = $valueLookup[$propertyKey]
         }
     }
 
-    $latitudeScreenSize = $null
-    $brandValue = [string]$ComputerData.NomMarqueOrdinateur
-    $latitudeScreenSize = Get-DellLatitudeScreenSizeInches -Brand $brandValue
-    if ($null -ne $latitudeScreenSize) {
-        $screenValue = ('{0} pouces' -f $latitudeScreenSize)
-        $valueLookup['tailleecran'] = $screenValue
-        $valueLookup['tailleecranpouces'] = $screenValue
-        $valueLookup['ecran'] = $screenValue
-        $valueLookup['ecranpouces'] = $screenValue
-        $valueLookup['pouces'] = [string]$latitudeScreenSize
-    }
-
+    $missingSentinel = '__MISSING_VALUE__'
     $evaluator = [System.Text.RegularExpressions.MatchEvaluator]{
         param($match)
 
@@ -169,60 +163,18 @@ function Get-DescriptionFromTemplate {
             }
         }
 
-        $tokenLoose = $lookupKey -replace '^(type|nombre|nom|de|du|des|la|le)+', ''
-        if (-not [string]::IsNullOrWhiteSpace($tokenLoose)) {
-            $bestKey = $valueLookup.Keys |
-                Where-Object {
-                    $k = [string]$_
-                    -not [string]::IsNullOrWhiteSpace($k) -and
-                    ($k -like "*$lookupKey*" -or $lookupKey -like "*$k*" -or $k -like "*$tokenLoose*" -or $tokenLoose -like "*$k*")
-                } |
-                Sort-Object Length -Descending |
-                Select-Object -First 1
-
-            if (-not [string]::IsNullOrWhiteSpace($bestKey)) {
-                $bestValue = [string]$valueLookup[$bestKey]
-                if (-not [string]::IsNullOrWhiteSpace($bestValue) -and $bestValue -ne $MissingValue) {
-                    return $bestValue
-                }
-            }
-
-            $tokenParts = ($tokenLoose -split '([a-z]+)') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-            if ($tokenParts.Count -gt 1) {
-                $tokenParts = $tokenParts | Where-Object { $_ -notmatch '^(type|nombre|nom|de|du|des|la|le)$' }
-                foreach ($key in $valueLookup.Keys) {
-                    $matchAll = $true
-                    foreach ($part in $tokenParts) {
-                        if ([string]::IsNullOrWhiteSpace($part)) { continue }
-                        if (-not ([string]$key -like "*$part*")) {
-                            $matchAll = $false
-                            break
-                        }
-                    }
-                    if ($matchAll) {
-                        $bestValue = [string]$valueLookup[$key]
-                        if (-not [string]::IsNullOrWhiteSpace($bestValue) -and $bestValue -ne $MissingValue) {
-                            return $bestValue
-                        }
-                    }
-                }
-            }
-        }
-
-        return $MissingValue
+        return $missingSentinel
     }
 
     $result = [regex]::Replace($TemplateText, '\[(?<token>[^\[\]\r\n]+)\]', $evaluator)
-    $result = [regex]::Replace($result, '(?i)\b(go|to)\s+\1\b', '$1')
+    $result = [regex]::Replace($result, '^[^\r\n]*' + [regex]::Escape($missingSentinel) + '[^\r\n]*\r?\n?', '', [Text.RegularExpressions.RegexOptions]::Multiline)
+    $result = [regex]::Replace($result, '^[^\r\n]*\[[^\]\r\n]+\][^\r\n]*\r?\n?', '', [Text.RegularExpressions.RegexOptions]::Multiline)
+    $result = [regex]::Replace($result, '(\r\n|\r|\n){2,}', "`r`n")
+    $result = $result.Trim()
+
     if ([string]::IsNullOrWhiteSpace($result)) {
         return $MissingValue
     }
 
-    if ($null -ne $latitudeScreenSize -and
-        $result -ne $MissingValue -and
-        $result -notmatch '(?i)\b[0-9]{2}\s*pouces?\b') {
-        $result = ('{0} - Ecran {1} pouces' -f $result.Trim().TrimEnd('.'), $latitudeScreenSize)
-    }
-
-    return $result.Trim()
+    return $result
 }
