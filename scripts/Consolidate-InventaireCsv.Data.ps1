@@ -147,6 +147,13 @@ function Build-ComputerObject {
     $modeleOrdinateur = if ([string]::IsNullOrWhiteSpace($modeleOrdinateurRaw) -or $modeleOrdinateurRaw -eq $MissingValue) { $brandModel.Model } else { $modeleOrdinateurRaw }
     $detectedTypeBoitier = Select-DescriptionType -TypeBoitier ([string]$rawTypeBoitier) -Model ([string]$modeleOrdinateur) -Brand $nomMarqueOrdinateur -Motherboard ([string]$rawMotherboard)
 
+    $tauxUsureValue = if ($detectedTypeBoitier -ieq 'Portable') {
+        GetFirstValue -FieldName 'TauxUsure' -Keys @('Taux d usure', 'Taux d usure de la batterie', "Taux d'usure", 'BatteryWearLevel', 'BatteryWear', 'Usure batterie', 'Battery Wear', 'Wear Level', 'Degre d usure', 'Etat batterie', 'Battery Status') -FallbackContains @('taux', 'usure', 'wear', 'batterie') -DefaultValue $MissingValue
+    }
+    else {
+        GetFirstValueNoWarning -Keys @('Taux d usure', 'Taux d usure de la batterie', "Taux d'usure", 'BatteryWearLevel', 'BatteryWear', 'Usure batterie', 'Battery Wear', 'Wear Level', 'Degre d usure', 'Etat batterie', 'Battery Status') -FallbackContains @('taux', 'usure', 'wear', 'batterie') -DefaultValue $MissingValue
+    }
+
     $pcObject = [PSCustomObject]@{
         SystemeOperateur          = Normalize-OperatingSystem -Value (GetFirstValue -FieldName 'SystemeOperateur' -Keys @('Systeme operateur', 'OperatingSystem', 'OS', 'Caption') -DefaultValue $MissingValue) -MissingValue $MissingValue
         NomMarqueOrdinateur       = $nomMarqueOrdinateur
@@ -157,7 +164,7 @@ function Build-ComputerObject {
         NumeroSerie               = GetFirstValue -FieldName 'NumeroSerie' -Keys @('Numero de serie', 'Numéro de série', 'Serial Number', 'SerialNumber', 'System Serial Number', 'BIOS serial number') -FallbackContains @('serial') -DefaultValue $MissingValue
         MemoireTotale             = GetFirstValue -FieldName 'MemoireTotale' -Keys @('Taille totale de la memoire', 'TotalMemory', 'MemoryTotal', 'RAM', 'Memoire physique totale') -DefaultValue $MissingValue
         TypeDDRSupporte           = $typeDdrSupporte
-        TauxUsure                 = GetFirstValue -FieldName 'TauxUsure' -Keys @('Taux d usure', 'Taux d usure de la batterie', "Taux d'usure", 'BatteryWearLevel', 'BatteryWear', 'Usure batterie', 'Battery Wear', 'Wear Level', 'Degre d usure', 'Etat batterie', 'Battery Status') -FallbackContains @('taux', 'usure', 'wear', 'batterie') -DefaultValue $MissingValue
+        TauxUsure                 = $tauxUsureValue
         CarteGraphique            = GetFirstValue -FieldName 'CarteGraphique' -Keys @('Jeu de puces graphiques', 'Graphics Chipset', 'Graphic Chipset', 'GPU Chipset', 'Nom de la puce graphique') -FallbackContains @('puces', 'graphi') -DefaultValue $MissingValue
         ModeleSSD                 = $rawModeleSSD
         TailleEcran               = if ([string]::IsNullOrWhiteSpace($rawScreenSize)) { $MissingValue } else { $rawScreenSize }

@@ -84,6 +84,40 @@ if (-not (Get-Module -ListAvailable -Name ImportExcel)) {
 }
 Import-Module ImportExcel -ErrorAction Stop
 
+function Render-ProgressBar {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Current,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Total,
+
+        [string]$Label = 'Traitement',
+        [int]$Width = 20
+    )
+
+    if ($Total -le 0) {
+        return
+    }
+
+    $percent = [math]::Round(($Current / $Total) * 100)
+    if ($percent -gt 100) { $percent = 100 }
+
+    $filled = [int]([math]::Floor($Width * $Current / $Total))
+    if ($filled -lt 0) { $filled = 0 }
+    if ($filled -gt $Width) { $filled = $Width }
+
+    $empty = $Width - $filled
+    $fill = if ($filled -gt 0) { -join (1..$filled | ForEach-Object { 'o' }) } else { '' }
+    $space = if ($empty -gt 0) { -join (1..$empty | ForEach-Object { ' ' }) } else { '' }
+
+    $bar = "|$fill$space|"
+    Write-Host -NoNewline "`r$Label $bar $percent`%"
+    if ($Current -eq $Total) {
+        Write-Host
+    }
+}
+
 $csvFiles = Get-ChildItem -Path $Folder -Filter '*.csv' -File
 if (-not $csvFiles) {
     Exit-WithMessage -Message "Pas de CSV dans : $Folder" -Code 10
