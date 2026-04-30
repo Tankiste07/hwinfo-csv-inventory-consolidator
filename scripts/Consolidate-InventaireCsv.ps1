@@ -109,10 +109,13 @@ function Render-ProgressBar {
 
     $empty = $Width - $filled
     $fill = if ($filled -gt 0) { -join (1..$filled | ForEach-Object { 'o' }) } else { '' }
-    $space = if ($empty -gt 0) { -join (1..$empty | ForEach-Object { ' ' }) } else { '' }
+    $dash = if ($empty -gt 0) { -join (1..$empty | ForEach-Object { '-' }) } else { '' }
 
-    $bar = "|$fill$space|"
-    Write-Host -NoNewline "`r$Label $bar $percent`%"
+    $bar = "|$fill$dash|"
+    $display = "{0} {1} {2}`%" -f $Label, $bar, $percent
+    $padding = ' ' * [math]::Max(0, 80 - $display.Length)
+
+    Write-Host -NoNewline "`r$display$padding"
     if ($Current -eq $Total) {
         Write-Host
     }
@@ -123,10 +126,13 @@ if (-not $csvFiles) {
     Exit-WithMessage -Message "Pas de CSV dans : $Folder" -Code 10
 }
 
+$totalSteps = $csvFiles.Count + 4
+$currentStep = 0
 $results = New-Object System.Collections.Generic.List[object]
 $descriptionTemplates = Load-DescriptionTemplates -DescriptionTemplateFolder $DescriptionTemplateFolder -MissingValue $MissingValue
 
 foreach ($file in $csvFiles) {
+    $currentStep++
     try {
         $script:CurrentFile = $file.Name
         $script:CurrentIndex = Read-HwInfoCsvIndex -FilePath $file.FullName
@@ -138,6 +144,7 @@ foreach ($file in $csvFiles) {
         Write-AppWarning "Fichier ignore '$($file.Name)' : $($_.Exception.Message)"
         continue
     }
+    Render-ProgressBar -Current $currentStep -Total $totalSteps -Label "Traitement"
 }
 
 if ($results.Count -eq 0) {
@@ -145,9 +152,20 @@ if ($results.Count -eq 0) {
 }
 
 Export-InventoryToExcel -Items $results -OutputPath $Output
+$currentStep++
+Render-ProgressBar -Current $currentStep -Total $totalSteps -Label "Export inventaire"
+
 Export-AnnouncementInventoryToExcel -Items $results -OutputPath $AnnouncementOutput
+$currentStep++
+Render-ProgressBar -Current $currentStep -Total $totalSteps -Label "Export annonce"
+
 Highlight-HighWearRows -OutputPath $Output -MissingValue $MissingValue -Threshold 38.0
+$currentStep++
+Render-ProgressBar -Current $currentStep -Total $totalSteps -Label "Mise en surbrillance"
+
 Remove-SourceCsvFiles -CsvFiles $csvFiles
+$currentStep++
+Render-ProgressBar -Current $currentStep -Total $totalSteps -Label "Nettoyage"
 
 Write-AppInfo "Export termine : $Output"
 Write-AppInfo "Export annonce termine : $AnnouncementOutput"

@@ -38,7 +38,6 @@ function Write-AppInfo {
     )
 
     Write-Host $Message
-    Write-Log -Level 'INFO' -Message $Message
 }
 
 function Exit-WithMessage {
